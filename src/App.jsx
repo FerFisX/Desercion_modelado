@@ -13,6 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 
+// Registrar los componentes de Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -32,7 +33,7 @@ function App() {
   const [stdDev, setStdDev] = useState(1);
   const [chartData, setChartData] = useState({});
   const [chartOptions, setChartOptions] = useState({});
-  const [currentChartComponent, setCurrentChartComponent] = useState(Bar);
+  const [currentChartComponent, setCurrentChartComponent] = useState(() => Bar); // Usar un setter de función
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -48,8 +49,21 @@ function App() {
   const [testResults, setTestResults] = useState(null);
   const [testLoading, setTestLoading] = useState(false);
   const [testError, setTestError] = useState(null);
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'; // Default para desarrollo
 
+  // Determinar la URL base de la API. En desarrollo, Vite proxy redirige /api.
+  // En producción (Render), el frontend hará solicitudes directas al backend.
+  // Es crucial que esta URL sea correcta.
+  const API_BASE_URL = import.meta.env.VITE_API_URL || ''; 
+  // Si usas proxy en desarrollo, deja VITE_API_URL vacío en .env.local
+  // Si en producción tu backend está en https://tu-backend.onrender.com,
+  // entonces en la configuración de build de Render para el frontend,
+  // deberías tener VITE_API_URL=https://tu-backend.onrender.com
+
+  // Helper para capitalizar la primera letra (solución para .capitalize() de Python)
+  const capitalizeFirstLetter = (string) => {
+    if (!string) return '';
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  };
 
   // Función para obtener datos de distribución del backend
   const generateChartData = async () => {
@@ -65,7 +79,8 @@ function App() {
     }
 
     try {
-      const response = await fetch('/api/generate_distribution_data', {
+      // Usar la URL base de la API para construir la URL completa
+      const response = await fetch(`${API_BASE_URL}/api/generate_distribution_data`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +89,14 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        // Intentar parsear el error si la respuesta no es OK
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          // Si no se puede parsear como JSON, la respuesta podría ser texto plano o vacía
+          errorData = { error: `Error HTTP ${response.status}: ${response.statusText || 'Respuesta no JSON válida.'}` };
+        }
         throw new Error(errorData.error || 'Error al obtener datos de distribución.');
       }
 
@@ -135,14 +157,14 @@ function App() {
     } catch (err) {
       console.error("Error al generar datos de gráfico:", err);
       setError(err.message);
-      setChartData({});
+      setChartData({}); // Limpiar el gráfico en caso de error
     } finally {
       setLoading(false);
     }
   };
 
   const generateObservedChart = () => {
-    const labels = Array.from({ length: 10 }, (_, i) => `${i + 1}º Semestre`);
+    const labels = Array.from({ length: observedAbandonmentData.length }, (_, i) => `${i + 1}º Semestre`);
 
     setObservedChartData({
       labels: labels,
@@ -209,13 +231,17 @@ function App() {
     // Añadir parámetros de la distribución teórica según el tipo seleccionado
     if (distributionType === 'poisson') {
       requestBody.lambda = lambda;
-    } else { // Normal
+    } else if (distributionType === 'normal') {
       requestBody.mean = mean;
       requestBody.stdDev = stdDev;
     }
+    // Si agregas exponencial, también inclúyelo aquí
+    // else if (distributionType === 'exponential') {
+    //   requestBody.lambda = lambda; // O el parámetro que uses para exponencial
+    // }
 
     try {
-      const response = await fetch('/api/run_goodness_of_fit_test', {
+      const response = await fetch(`${API_BASE_URL}/api/run_goodness_of_fit_test`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -224,7 +250,12 @@ function App() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (jsonError) {
+          errorData = { error: `Error HTTP ${response.status}: ${response.statusText || 'Respuesta no JSON válida.'}` };
+        }
         throw new Error(errorData.error || 'Error al ejecutar la prueba.');
       }
 
@@ -242,14 +273,18 @@ function App() {
 
   useEffect(() => {
     generateChartData();
-  }, [distributionType, lambda, mean, stdDev]);
+  }, [distributionType, lambda, mean, stdDev]); // Dependencias para re-generar el gráfico teórico
 
   useEffect(() => {
     generateObservedChart();
-  }, [observedAbandonmentData]);
+  }, [observedAbandonmentData]); // Dependencias para re-generar el gráfico observado
 
   // Renderizado del componente
-  const ChartComponent = currentChartComponent;
+  // Asegurarse de que chartData.datasets exista y tenga al menos un dataset antes de renderizar el ChartComponent
+  const ChartDisplayComponent = chartData.datasets && chartData.datasets[0] && chartData.datasets[0].data.length > 0
+    ? currentChartComponent
+    : null; // No renderizar si no hay datos
+
 
   return (
     <div className="app-container"> {/* Contenedor principal para centrar y aplicar estilos */}
@@ -271,6 +306,7 @@ function App() {
             >
               <option value="poisson">Poisson</option>
               <option value="normal">Normal</option>
+              {/* <option value="exponential">Exponencial</option> */}
             </select>
           </label>
         </div>
@@ -278,7 +314,7 @@ function App() {
         {distributionType === 'poisson' && (
           <div className="input-group">
             <label htmlFor="lambda-input">
-              Lambda (<strong className="math-symbol">λ</strong>):
+              Lambda (<span className="math-symbol">λ</span>):
               <input
                 type="number"
                 id="lambda-input"
@@ -295,7 +331,7 @@ function App() {
         {distributionType === 'normal' && (
           <div className="input-group-row"> {/* Usar una clase para inputs en fila */}
             <label htmlFor="mean-input">
-              Media (<strong className="math-symbol">μ</strong>):
+              Media (<span className="math-symbol">μ</span>):
               <input
                 type="number"
                 id="mean-input"
@@ -306,7 +342,7 @@ function App() {
               />
             </label>
             <label htmlFor="stddev-input" className="ml-15"> {/* Clase para margen izquierdo */}
-              Desviación Estándar (<strong className="math-symbol">σ</strong>):
+              Desviación Estándar (<span className="math-symbol">σ</span>):
               <input
                 type="number"
                 id="stddev-input"
@@ -319,13 +355,31 @@ function App() {
             </label>
           </div>
         )}
+        {/* Aquí puedes agregar la sección para exponencial si la implementas */}
+        {/* {distributionType === 'exponential' && (
+          <div className="input-group">
+            <label htmlFor="lambda-exp-input">
+              Lambda (<span className="math-symbol">λ</span>):
+              <input
+                type="number"
+                id="lambda-exp-input"
+                value={lambda}
+                onChange={(e) => setLambda(Number(e.target.value))}
+                min="0.01"
+                step="0.01"
+                className="styled-input"
+              />
+            </label>
+          </div>
+        )} */}
+
 
         {loading && <p className="loading-message">Cargando datos de la distribución...</p>}
         {error && <p className="error-message">Error: {error}</p>}
 
         <div className="chart-container">
-          {chartData.datasets && chartData.datasets[0] && chartData.datasets[0].data.length > 0 && (
-            React.createElement(currentChartComponent, { data: chartData, options: chartOptions })
+          {ChartDisplayComponent && ( // Renderiza solo si ChartDisplayComponent no es null
+            <ChartDisplayComponent data={chartData} options={chartOptions} />
           )}
         </div>
       </section>
@@ -371,7 +425,8 @@ function App() {
                 onChange={(e) => setTestType(e.target.value)}
                 className="styled-select"
               >
-                <option value="chi_square">Chi-cuadrado (<strong className="math-symbol">χ²</strong>)</option>
+                {/* Eliminados los <strong> dentro de <option> */}
+                <option value="chi_square">Chi-cuadrado (χ²)</option>
                 <option value="kolmogorov_smirnov">Kolmogorov-Smirnov (K-S)</option>
               </select>
             </label>
@@ -391,25 +446,30 @@ function App() {
             <div className="results-card">
               <h4>Resultados de la Prueba ({testResults.testType === 'chi_square' ? 'Chi-cuadrado' : 'Kolmogorov-Smirnov'})</h4>
               <p>
-                <strong className="bold-text">Distribución Teórica Comparada:</strong> {testResults.distributionType.charAt(0).toUpperCase() + testResults.distributionType.slice(1)}{' '}
+                <strong className="bold-text">Distribución Teórica Comparada:</strong> {capitalizeFirstLetter(testResults.distributionType)}{' '}
                 ({testResults.distributionType === 'poisson' ? (
                   <>
-                    <strong className="math-symbol">λ</strong>={lambda}
+                    <span className="math-symbol">λ</span>={lambda}
                   </>
                 ) : (
                   <>
-                    <strong className="math-symbol">μ</strong>={mean},{' '}
-                    <strong className="math-symbol">σ</strong>={stdDev}
+                    <span className="math-symbol">μ</span>={mean},{' '}
+                    <span className="math-symbol">σ</span>={stdDev}
                   </>
                 )})
               </p>
-              <p><strong className="bold-text">Estadístico de Prueba:</strong> {testResults.statistic.toFixed(4)}</p> {/* Formatear a 4 decimales */}
-              <p><strong className="bold-text">P-valor:</strong> {testResults.pValue.toFixed(4)}</p> {/* Formatear a 4 decimales */}
+              {/* Usar optional chaining ?. y toFixed para evitar errores si los valores son null/undefined */}
+              {testResults.statistic !== null && testResults.statistic !== undefined && (
+                <p><strong className="bold-text">Estadístico de Prueba:</strong> {testResults.statistic.toFixed(4)}</p>
+              )}
+              {testResults.pValue !== null && testResults.pValue !== undefined && (
+                <p><strong className="bold-text">P-valor:</strong> {testResults.pValue.toFixed(4)}</p>
+              )}
               {testResults.details && testResults.details.degrees_of_freedom !== undefined && (
                 <p><strong className="bold-text">Grados de Libertad:</strong> {testResults.details.degrees_of_freedom}</p>
               )}
 
-              {testResults.testType === 'chi_square' && testResults.details.grouped_observed_counts && testResults.details.grouped_expected_counts && (
+              {testResults.testType === 'chi_square' && testResults.details?.grouped_observed_counts && testResults.details?.grouped_expected_counts && (
                 <div className="frequency-table-container">
                   <h3>Frecuencias Agrupadas para la Prueba Chi-cuadrado:</h3>
                   <table>
@@ -424,8 +484,8 @@ function App() {
                       {testResults.details.grouped_observed_counts.map((obs, index) => (
                         <tr key={index}>
                           <td>{index + 1}</td>
-                          <td>{obs.toFixed(2)}</td>
-                          <td>{testResults.details.grouped_expected_counts[index].toFixed(2)}</td>
+                          <td>{obs?.toFixed(2)}</td>
+                          <td>{testResults.details.grouped_expected_counts[index]?.toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -448,7 +508,7 @@ function App() {
               {testResults.conclusion.includes("NO se ajustan") ? (
                 <>
                   <p className="conclusion-text">
-                    <strong className="bold-text">Los datos observados de abandono NO se ajustan a la distribución {testResults.distributionType.charAt(0).toUpperCase() + testResults.distributionType.slice(1)} con los parámetros seleccionados.</strong> Esto sugiere que la forma en que los estudiantes abandonan no sigue este patrón estadístico específico.
+                    <strong className="bold-text">Los datos observados de abandono NO se ajustan a la distribución {capitalizeFirstLetter(testResults.distributionType)} con los parámetros seleccionados.</strong> Esto sugiere que la forma en que los estudiantes abandonan no sigue este patrón estadístico específico.
                   </p>
                   <h3>Posibles Razones y Recomendaciones:</h3>
                   <ul className="recommendations-list">
@@ -462,13 +522,13 @@ function App() {
               ) : (
                 <>
                   <p className="conclusion-text">
-                    <strong className="bold-text">Los datos observados de abandono PUEDEN ajustarse a la distribución {testResults.distributionType.charAt(0).toUpperCase() + testResults.distributionType.slice(1)} con los parámetros seleccionados.</strong> Esto implica que el patrón de abandono podría estar influenciado por un proceso aleatorio consistente con esta distribución. Por ejemplo, en Poisson, esto podría indicar que la tasa promedio de abandono (<strong className="math-symbol">λ</strong>) es relativamente constante por semestre.
+                    <strong className="bold-text">Los datos observados de abandono PUEDEN ajustarse a la distribución {capitalizeFirstLetter(testResults.distributionType)} con los parámetros seleccionados.</strong> Esto implica que el patrón de abandono podría estar influenciado por un proceso aleatorio consistente con esta distribución. Por ejemplo, en Poisson, esto podría indicar que la tasa promedio de abandono (<span className="math-symbol">λ</span>) es relativamente constante por semestre.
                   </p>
                   <h3>Posibles Acciones y Recomendaciones:</h3>
                   <ul className="recommendations-list">
                     <li><strong className="bold-text">Validación del Modelo:</strong> Aunque la prueba no rechazó la hipótesis nula, esto no prueba que los datos *definitivamente* sigan esa distribución. Es una buena indicación, pero siempre es útil validar con más datos o con otros métodos.</li>
-                    <li><strong className="bold-text">Comprensión de los Parámetros:</strong> Si se ajusta a Poisson, el <strong className="math-symbol">λ</strong> (media de eventos por semestre) es un indicador clave. Si se ajusta a Normal, la media y desviación estándar (<strong className="math-symbol">μ</strong> y <strong className="math-symbol">σ</strong>) describen el pico y la dispersión del abandono. Usa estos parámetros para entender mejor el fenómeno.</li>
-                    <li><strong className="bold-text">Identificación de Semestres Críticos:</strong> Observa dónde se concentra la mayor probabilidad de abandono según la distribución teórica. Por ejemplo, con <strong className="math-symbol">λ</strong>=2 en Poisson, los semestres 1 y 2 son críticos.</li>
+                    <li><strong className="bold-text">Comprensión de los Parámetros:</strong> Si se ajusta a Poisson, el <span className="math-symbol">λ</span> (media de eventos por semestre) es un indicador clave. Si se ajusta a Normal, la media y desviación estándar (<span className="math-symbol">μ</span> y <span className="math-symbol">σ</span>) describen el pico y la dispersión del abandono. Usa estos parámetros para entender mejor el fenómeno.</li>
+                    <li><strong className="bold-text">Identificación de Semestres Críticos:</strong> Observa dónde se concentra la mayor probabilidad de abandono según la distribución teórica. Por ejemplo, con <span className="math-symbol">λ</span>=2 en Poisson, los semestres 1 y 2 son críticos.</li>
                     <li><strong className="bold-text">Intervenciones Dirigidas:</strong> Diseña programas de apoyo dirigidos a los semestres o períodos donde la distribución predice un mayor abandono. Esto podría incluir tutorías, apoyo financiero, asesoramiento académico o psicológico.</li>
                     <li><strong className="bold-text">Monitoreo Continuo:</strong> Sigue monitoreando los datos de abandono para ver si el patrón se mantiene con el tiempo y si las intervenciones tienen un impacto.</li>
                   </ul>
