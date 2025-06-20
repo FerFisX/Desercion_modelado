@@ -11,9 +11,9 @@ const Dashboard = () => {
   const [simData, setSimData] = useState([]);
 
   useEffect(() => {
-    axios.get('${API_URL}/data/real')
+    axios.get('https://desercion-backend-api.onrender.com/data/real')
       .then(res => setRealData(res.data));
-    axios.get('${API_URL}/data/simulada')
+    axios.get('https://desercion-backend-api.onrender.com/data/simulada')
       .then(res => setSimData(res.data));
   }, []);
 
