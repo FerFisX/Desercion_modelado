@@ -7,8 +7,8 @@ const CDFComparativa = () => {
   const [simData, setSimData] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/data/real').then(res => setRealData(res.data));
-    axios.get('http://localhost:5000/data/simulada').then(res => setSimData(res.data));
+    axios.get('https://desercion-backend-api.onrender.com/data/real').then(res => setRealData(res.data));
+    axios.get('https://desercion-backend-api.onrender.com/data/simulada').then(res => setSimData(res.data));
   }, []);
 
   // Utilidades para calcular CDF
