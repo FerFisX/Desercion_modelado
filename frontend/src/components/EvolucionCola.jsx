@@ -33,11 +33,28 @@ const EvolucionCola = () => {
           }
         ]}
         layout={{
-          xaxis: { title: 'Tiempo (min)' },
-          yaxis: { title: 'Cantidad en cola' },
+          xaxis: {
+            title: 'Tiempo (min)',
+            showgrid: true,
+            zeroline: false
+          },
+          yaxis: {
+            title: 'Cantidad de Pacientes en Espera',
+            showgrid: true,
+            zeroline: false
+          },
+          margin: { t: 40, l: 60, r: 30, b: 60 },
           width: 900,
-          height: 500
+          height: 500,
+          title: {
+            text: '',
+            font: {
+              size: 16,
+              family: 'Arial'
+            }
+          }
         }}
+        config={{ responsive: true }}
       />
     </div>
   );
