@@ -6,7 +6,7 @@ const EvolucionCola = () => {
   const [colaData, setColaData] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/data/cola')
+    axios.get('https://desercion-backend-api.onrender.com/data/cola')
       .then(res => setColaData(res.data));
   }, []);
 
