@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import API_URL from '../config';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer
@@ -10,9 +11,9 @@ const Dashboard = () => {
   const [simData, setSimData] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/data/real')
+    axios.get('${API_URL}/data/real')
       .then(res => setRealData(res.data));
-    axios.get('http://localhost:5000/data/simulada')
+    axios.get('${API_URL}/data/simulada')
       .then(res => setSimData(res.data));
   }, []);
 
