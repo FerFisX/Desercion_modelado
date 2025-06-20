@@ -6,7 +6,7 @@ const KPIColumn = () => {
   const [simData, setSimData] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/data/simulada').then(res => {
+    axios.get('https://desercion-backend-api.onrender.com/data/simulada').then(res => {
       setSimData(res.data);
     });
   }, []);
