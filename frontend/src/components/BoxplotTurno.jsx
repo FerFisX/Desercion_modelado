@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import API_URL from '../config';
 import Plot from 'react-plotly.js';
 
 const BoxplotTurno = () => {
@@ -7,8 +8,8 @@ const BoxplotTurno = () => {
   const [simData, setSimData] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/data/real').then(res => setRealData(res.data));
-    axios.get('http://localhost:5000/data/simulada').then(res => setSimData(res.data));
+    axios.get('https://desercion-backend-api.onrender.com/data/real').then(res => setRealData(res.data));
+    axios.get('https://desercion-backend-api.onrender.com/data/simulada').then(res => setSimData(res.data));
   }, []);
 
   // Determina el turno por hora
